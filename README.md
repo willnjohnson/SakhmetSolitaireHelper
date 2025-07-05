@@ -59,3 +59,5 @@ Contributions are welcome! If you have suggestions for improvements, bug fixes, 
 ## License
 
 This project is open-source and available under the MIT License.
+
+**Disclaimer:** "Neopets" is a registered trademark of Neopets, Inc. This script is an unofficial fan-made helper and is not affiliated with or endorsed by Neopets, Inc.
