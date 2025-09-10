@@ -40,7 +40,7 @@ This script requires a user script manager like Tampermonkey or Greasemonkey.
 1. **Navigate to the Sakhmet Solitaire game page on Neopets**
 2. **The script will automatically run and apply highlights to playable cards**
 3. **Observe the magenta/green/cyan outlines to guide your moves**
-4. **When you click a card in the tableau, it will be highlighted magenta, and any valid destination cards will be highlighted cyan**
+4. **When you click a card in the tableau, it will be highlighted magenta, and any valid destination cards will be highlighted green**
 5. **Cards highlighted in cyan indicate draw**
 6. **For automated play:** The script will automatically make moves (please adjust delays as you see fit)
 
