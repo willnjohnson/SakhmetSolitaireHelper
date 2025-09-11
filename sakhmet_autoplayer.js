@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Sakhmet Solitaire Autoplayer
 // @namespace     GreaseMonkey
-// @version       1.0
+// @version       1.1
 // @description   Autoplayer for Neopets Sakhmet Solitaire with adjustable delays ;)
 // @author        @willnjohnson
 // @match         *://www.neopets.com/games/sakhmet_solitaire/*
@@ -18,14 +18,50 @@ function getRandomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const DELAY_CYAN = () => getRandomDelay(500, 700); // kinda fast delay
-const DELAY_MAGENTA = () => getRandomDelay(800, 900); // kinda fast delay, but not as fast as cyan
-const DELAY_GREEN = () => getRandomDelay(600, 700); // kinda fast delay, magenta implies user knows what move to make
+const DELAY_CYAN = () => getRandomDelay(500, 600); // kinda fast delay
+const DELAY_MAGENTA = () => getRandomDelay(800, 850); // kinda fast delay, but not as fast as cyan
+const DELAY_GREEN = () => getRandomDelay(560, 650); // kinda fast delay, magenta implies user knows what move to make
 const DELAY_COLLECT_WINNINGS = () => getRandomDelay(1400, 1800); // delay for Collect Winnings
 const DELAY_PRE_POST_GAME = () => getRandomDelay(700, 900); // kinda fast for pre-game and post-game screens
+const DELAY_RELOAD_PAGE = () => getRandomDelay(1000, 1500); // Delay before reloading page
+const DELAY_GO_BACK = () => getRandomDelay(1050, 1800); // Delay before going back
 
 let currentSuggestion = null;
 let autoPlaying = true; // Flag to control autoplay
+
+async function reloadPage() {
+    console.log('No action could be taken. Reloading page...');
+    await new Promise(resolve => setTimeout(resolve, DELAY_RELOAD_PAGE()));
+    window.location.replace("https://www.neopets.com/games/sakhmet_solitaire/sakhmet_solitaire.phtml");
+}
+
+async function goBack() {
+    console.log('Encountered an error page. Going back in history...');
+    await new Promise(resolve => setTimeout(resolve, DELAY_GO_BACK()));
+    window.history.back();
+}
+
+const getElement = (selector, context = document) => {
+    try {
+        return context.querySelector(selector);
+    } catch (e) {
+        return null;
+    }
+};
+
+const SELECTORS = {
+    errorMessageDiv: "div.errorMessage b",
+};
+
+async function checkForErrorMessage() {
+    const errorBoldText = getElement(SELECTORS.errorMessageDiv);
+    if (errorBoldText && errorBoldText.textContent.includes("Error: ") && errorBoldText.closest("div.errorMessage").textContent.includes("You have been directed to this page from the wrong place!")) {
+        console.warn('Detected "You have been directed to this page from the wrong place!" error.');
+        await goBack();
+        return true;
+    }
+    return false;
+}
 
 // Represents a playing card with rank, suit, and face-up status.
 class Card {
@@ -64,7 +100,7 @@ class Card {
     turnFaceUp() { this.faceUp = true; }
 
     // Turns the card face down.
-    turnFaceDown() { this.faceUp = false; }
+    turnFaceDown() { this.faceUp = false; } // Corrected to previous intent.
 
     // Returns a string representation of the card (e.g., "A♠").
     toString() {
@@ -562,6 +598,8 @@ function applyMoveHighlight(suggestion) {
                     collectForm.submit();
                 } else {
                     console.warn('AutoPlayer: Could not find Collect Winnings form');
+                    // NEW: Fallback for Collect Winnings if form not found
+                    reloadPage();
                 }
             }, DELAY_COLLECT_WINNINGS());
         }
@@ -641,6 +679,11 @@ function applyMoveHighlight(suggestion) {
             highlightedElement.click();
         }, delay);
     }
+    // NEW: Fallback if autoPlaying but no element was highlighted
+    else if (autoPlaying && !highlightedElement) {
+        console.warn('AutoPlayer: Autoplay is ON, but no element was highlighted for the suggested move. Reloading as fallback.');
+        reloadPage();
+    }
 }
 
 // Parses the current Neopets solitaire game state from the DOM.
@@ -681,6 +724,7 @@ function parseNeopetsSolitaire() {
         if(filename === 'new_open') return; // Empty foundation
 
         const parts = filename.split('_');
+        // Reverted to original logic (length === 2) that was working
         if(parts.length === 2) {
             let rank = parseInt(parts[0]);
             if(rank === 14) rank = 1; // Treat 14 as A
@@ -751,6 +795,7 @@ function parseNeopetsSolitaire() {
                     const filenameMatch = img.src.match(/\/games\/(mcards|sakhmet_solitaire)\/([^\/]+)\.gif$/);
                     if(filenameMatch) {
                         const filename = filenameMatch[2];
+                        // Reverted to original logic (length === 2) that was working
                         const parts = filename.split('_');
                         if(parts.length === 2) {
                             let rank = parseInt(parts[0]);
@@ -814,6 +859,7 @@ class AI {
     }
 
     // Determines and executes the next move in the game.
+    // Reverted to non-async to match working version, will handle reload as final fallback.
     askNextMove() {
         this.madeMove = false;
         this.game = this.callbacks.playerViewGame();
@@ -836,6 +882,12 @@ class AI {
 
         this.checkStartNewPass();
         if(this.madeMove) return;
+
+        // NEW: Final fallback to reload page if no move could be made
+        if (!this.madeMove) {
+            console.log("AI: No valid moves found. Initiating page reload as a final fallback.");
+            reloadPage(); // Call the async reloadPage function
+        }
     }
 
     // Executes a move and marks it as made.
@@ -1067,7 +1119,7 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
     if(p1 === 0 && p2 === 1) {
         return "4) Draw";
     } else if(p1 === 1 && p2 === 0) {
-        return "5) Collect Winnings";
+        return "5) Collect Winnings"; // Reverted to original phrasing for consistency with how AI was trained
     } else if(p2 >= 6 && p2 <= 12) { // To Tableau
         if(dstPile.isEmpty()) {
             return `2) ${srcCard.toString()} -> T${p2 - 6}`;
@@ -1090,10 +1142,17 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
 }
 
 // Main script execution: parses the game state and sets up the AI and highlighting.
-(function() {
+(async function() { // Keep this async for checkForErrorMessage at the start
+    // NEW: Check for and handle error messages immediately
+    if (await checkForErrorMessage()) {
+        return; // Stop script execution if an error was found and handled
+    }
+
     // Check for pre-game or post-game states
     const playAgainButton = document.querySelector('input[value="Play Sakhmet Solitaire Again!"]');
     const playButton = document.querySelector('input[value="Play Sakhmet Solitaire!"]');
+    // Removed the explicit 'sakhmet_collect' form check here.
+    // The previous working code didn't have it, relying on AI to suggest 'Collect Winnings'.
 
     if(playAgainButton) {
         console.log('Detected "Play Sakhmet Solitaire Again!" button - Game is in post-game state');
@@ -1116,10 +1175,12 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
     }
 
     // Delay parsing to ensure page is fully loaded
-    setTimeout(() => {
+    setTimeout(() => { // Reverted to non-async for consistency with working version
         const state = parseNeopetsSolitaire();
         if(!state) { // Added safety check
             console.error("Failed to parse game state. Helper cannot proceed.");
+            // NEW: Fallback if initial state parsing fails
+            reloadPage();
             return;
         }
 
@@ -1150,10 +1211,11 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
             }
         });
 
+        // Reverted to non-async call to askNextMove
         playerComputer.askNextMove();
 
         // Function to run the AI and apply highlights
-        const runAI = () => {
+        const runAI = () => { // Reverted to non-async for consistency with working version
             playerComputer.askNextMove();
         };
 
