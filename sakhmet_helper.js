@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Sakhmet Solitaire Helper
 // @namespace     GreaseMonkey
-// @version       1.0
+// @version       1.1
 // @description   Helper for Neopets Sakhmet Solitaire using highlighting
 // @author        @willnjohnson
 // @match         *://www.neopets.com/games/sakhmet_solitaire/*
@@ -455,22 +455,35 @@ function findCardImage(cardStr) {
     return null;
 }
 
-// Find destination element based on move type
+// Returns the <td> for a given tableau column in the second table row,
+// preventing false matches against the waste-area new_blank_card.gif.
+function getTableauColumnTd(colIndex) {
+    const tableauRow = document.querySelector('table[cols="9"] tr:nth-child(2)');
+    if(!tableauRow) return null;
+    return tableauRow.querySelector(`td:nth-child(${colIndex + TABLEAU_TD_OFFSET})`);
+}
 
+// Find destination element based on move type
 function findDestinationElement(moveStr) {
     // Check for Tableau moves (T)
     if(moveStr.includes('-> T')) {
         const tableauMatch = moveStr.match(/-> T(\d+)/);
         if(tableauMatch) {
             const tableauIndex = parseInt(tableauMatch[1]);
-            // Attempt to find an empty tableau slot if applicable (e.g., King to empty slot)
-            const img = document.querySelector('img[src*="new_blank_card.gif"]');
-            if(img) {
-                // console.log('findDestinationElement: Found blank card for empty tableau T' + tableauIndex);
-                return img;
+            // FIX: Scope lookup to the specific tableau column <td> so we never
+            // accidentally return the waste-pile blank card in the top row.
+            const columnTd = getTableauColumnTd(tableauIndex);
+            if(columnTd) {
+                const img = columnTd.querySelector('img[src*="new_blank_card.gif"]');
+                if(img) {
+                    // console.log('findDestinationElement: Found blank card for empty tableau T' + tableauIndex);
+                    return img;
+                }
+                console.warn(`findDestinationElement: Empty tableau slot image not found in column T${tableauIndex}.`);
             } else {
-                return null;
+                console.warn(`findDestinationElement: Could not locate <td> for tableau column T${tableauIndex}.`);
             }
+            return null;
         }
     }
     // Check for Foundation moves (F)
@@ -510,11 +523,12 @@ function findDestinationElement(moveStr) {
             // For card-to-card, find the destination card's image
             const destCardStr = destPart.split(' ')[0]; // Extract just the card string, e.g., "3♦"
             if(/^T\d+$/.test(destCardStr)) {
-                // Handle empty tableau
-                const imgs = document.querySelectorAll('img[src*="new_blank_card.gif"]');
-                if(imgs.length > 0) {
-                    // console.log('findDestinationElement: Found empty tableau image for:', destCardStr);
-                    return imgs[0]; // Assume only one empty tableau
+                // FIX: Same scoped lookup when destination appears as "T<n>" inline.
+                const tableauIndex = parseInt(destCardStr.slice(1));
+                const columnTd = getTableauColumnTd(tableauIndex);
+                if(columnTd) {
+                    const img = columnTd.querySelector('img[src*="new_blank_card.gif"]');
+                    if(img) return img;
                 }
                 return null;
             } else if(/^F\d+$/.test(destCardStr)) {
