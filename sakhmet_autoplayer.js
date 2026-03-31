@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Sakhmet Solitaire Autoplayer
 // @namespace     GreaseMonkey
-// @version       1.2
+// @version       1.3
 // @description   Autoplayer for Neopets Sakhmet Solitaire with adjustable delays ;)
 // @author        @willnjohnson
 // @match         *://www.neopets.com/games/sakhmet_solitaire/*
@@ -28,6 +28,47 @@ const DELAY_GO_BACK = () => getRandomDelay(1050, 1800); // Delay before going ba
 
 let currentSuggestion = null;
 let autoPlaying = true; // Flag to control autoplay
+
+// State tracking for bug detection
+let previousStateHash = null;
+let preMoveStateHash = null; // State BEFORE the move
+let sameStateCount = 0;
+let runAIInProgress = false;
+const MAX_SAME_STATE = 1; // Just 1 identical state is enough to detect bug
+
+// Cookie functions
+const COOKIE_NAME = 'neopets_solitaire_state';
+
+function setCookieState(value) {
+    document.cookie = COOKIE_NAME + '=' + encodeURIComponent(value) + '; path=/; max-age=3600';
+}
+
+function getCookieState() {
+    const value = getCookie(COOKIE_NAME);
+    return value;
+}
+
+function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+}
+
+// Simple hash function for game state comparison
+function getStateHash() {
+    // Only get card images, not all images
+    const cardImgs = document.querySelectorAll('img[name^="card_"], img[src*="mcards/"], img[src*="sakhmet_solitaire/"]');
+    let hash = '';
+    cardImgs.forEach(img => {
+        const name = img.getAttribute('name') || '';
+        const src = img.src;
+        const filename = src.split('/').pop();
+        // Only include relevant card data
+        if (filename && filename !== 'transparent_spacer.gif' && filename !== 'new_blank_card.gif') {
+            hash += name + '=' + filename + ',';
+        }
+    });
+    return hash;
+}
 
 async function reloadPage() {
     console.log('No action could be taken. Reloading page...');
@@ -1225,12 +1266,70 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
             }
         });
 
-        // Reverted to non-async call to askNextMove
-        playerComputer.askNextMove();
+        // Run AI for the first time
+        // Try to load previous state from cookie
+        const savedState = getCookieState();
+        if (savedState) {
+            preMoveStateHash = savedState;
+        }
+        
+        runAI();
 
         // Function to run the AI and apply highlights
-        const runAI = () => { // Reverted to non-async for consistency with working version
-            playerComputer.askNextMove();
+        function runAI() {
+            // Prevent re-entrancy - don't run if already in progress
+            if (runAIInProgress) {
+                return;
+            }
+            runAIInProgress = true;
+            
+            try {
+                // Get current state hash BEFORE making any move
+                const currentHash = getStateHash();
+                
+                // Compare current state with state BEFORE the last move
+                // If they're the same, the game didn't change (bugged)
+                if (preMoveStateHash && currentHash === preMoveStateHash) {
+                    sameStateCount++;
+                    
+                    if (sameStateCount >= MAX_SAME_STATE) {
+                        console.log('Game appears stuck - attempting to collect winnings');
+                        sameStateCount = 0;
+                        preMoveStateHash = null;
+                        previousStateHash = null;
+                        
+                        // Try to collect winnings
+                        const collectForm = document.forms['sakhmet_collect'];
+                        if (collectForm) {
+                            collectForm.submit();
+                            return;
+                        }
+                        // Check for collect button
+                        const collectBtn = document.querySelector('input[value*="Collect"]');
+                        if (collectBtn) {
+                            collectBtn.click();
+                            return;
+                        }
+                        // Fallback: reload
+                        reloadPage();
+                        return;
+                    }
+                } else {
+                    sameStateCount = 0;
+                }
+                
+                // Save state BEFORE the move we're about to make
+                preMoveStateHash = currentHash;
+                setCookieState(currentHash);
+                
+                // Run the AI to make a move
+                playerComputer.askNextMove();
+                
+                // After move completes, update previousStateHash for next comparison
+                previousStateHash = currentHash;
+            } finally {
+                runAIInProgress = false;
+            }
         };
 
         // MutationObserver for dynamic highlighting and re-running AI
