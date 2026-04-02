@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Sakhmet Solitaire Helper
 // @namespace     GreaseMonkey
-// @version       1.1
+// @version       1.2
 // @description   Helper for Neopets Sakhmet Solitaire using highlighting
 // @author        @willnjohnson
 // @match         *://www.neopets.com/games/sakhmet_solitaire/*
@@ -796,15 +796,31 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
 (function () {
     const playAgainButton = document.querySelector('input[value="Play Sakhmet Solitaire Again!"]');
     const playButton = document.querySelector('input[value="Play Sakhmet Solitaire!"]');
+    const collectForm = document.forms['sakhmet_collect'];
 
     if (playAgainButton) {
-        console.log('Detected "Play Sakhmet Solitaire Again!" button - post-game state');
+        playAgainButton.onclick = function() {
+            window.location.href = "https://www.neopets.com/games/sakhmet_solitaire/sakhmet_solitaire.phtml";
+            return false;
+        };
         return;
     }
 
     if (playButton) {
-        console.log('Detected "Play Sakhmet Solitaire!" button - pre-game state');
         return;
+    }
+
+    if (collectForm) {
+        collectForm.removeAttribute('onsubmit');
+        const collectLink = collectForm.querySelector('a[onclick]');
+        if (collectLink) {
+            collectLink.removeAttribute('onclick');
+            collectLink.onclick = function(e) {
+                e.preventDefault();
+                collectForm.submit();
+                return false;
+            };
+        }
     }
 
     setTimeout(() => {
