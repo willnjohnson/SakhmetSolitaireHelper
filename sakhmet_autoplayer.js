@@ -17,13 +17,13 @@ function getRandomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const DELAY_CYAN = () => getRandomDelay(300, 450);
-const DELAY_MAGENTA = () => getRandomDelay(350, 500);
-const DELAY_GREEN = () => getRandomDelay(330, 340);
-const DELAY_COLLECT_WINNINGS = () => getRandomDelay(400, 450);
-const DELAY_PRE_POST_GAME = () => getRandomDelay(400, 450);
-const DELAY_RELOAD_PAGE = () => getRandomDelay(300, 350);
-const DELAY_GO_BACK = () => getRandomDelay(350, 400);
+const DELAY_CYAN = () => getRandomDelay(500, 600); // kinda fast delay
+const DELAY_MAGENTA = () => getRandomDelay(800, 850); // kinda fast delay, but not as fast as cyan
+const DELAY_GREEN = () => getRandomDelay(560, 650); // kinda fast delay, magenta implies user knows what move to make
+const DELAY_COLLECT_WINNINGS = () => getRandomDelay(1400, 1800); // delay for Collect Winnings
+const DELAY_PRE_POST_GAME = () => getRandomDelay(700, 900); // kinda fast for pre-game and post-game screens
+const DELAY_RELOAD_PAGE = () => getRandomDelay(1000, 1500); // Delay before reloading page
+const DELAY_GO_BACK = () => getRandomDelay(1050, 1800); // Delay before going back
 
 let currentSuggestion = null;
 let autoPlaying = true;
