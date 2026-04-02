@@ -930,7 +930,8 @@ function getMoveSuggestion(p1, p2, p3, solitaireState) {
 
     if (playAgainButton) {
         console.log('Detected "Play Sakhmet Solitaire Again!" button - post-game state');
-        if (autoPlaying) setTimeout(() => playAgainButton.click(), DELAY_PRE_POST_GAME());
+        // if (autoPlaying) setTimeout(() => playAgainButton.click(), DELAY_PRE_POST_GAME());
+        if (autoPlaying) setTimeout(() => window.location.replace("https://www.neopets.com/games/sakhmet_solitaire/sakhmet_solitaire.phtml"), DELAY_PRE_POST_GAME());
         return;
     }
 
